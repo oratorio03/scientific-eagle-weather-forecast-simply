@@ -6,4 +6,6 @@
     <string name="refresh_button">Aggiorna</string>
     <string name="loading">Caricamento...</string>
     <string name="error_message">Si è verificato un errore. Riprova.</string>
+    <string name="enter_city_name">Inserisci il nome della città</string>
+    <string name="search">Cerca</string>
 </resources>
