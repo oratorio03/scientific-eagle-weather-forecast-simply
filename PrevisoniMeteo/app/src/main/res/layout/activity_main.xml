@@ -10,7 +10,7 @@
         android:id="@+id/cityNameTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Nome Città"
+        android:text="@string/city_name_placeholder"
         android:textSize="24sp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -21,7 +21,7 @@
         android:id="@+id/temperatureTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Temperatura"
+        android:text="@string/temperature_placeholder"
         android:textSize="48sp"
         app:layout_constraintTop_toBottomOf="@id/cityNameTextView"
         app:layout_constraintStart_toStartOf="parent"
@@ -32,7 +32,7 @@
         android:id="@+id/descriptionTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Descrizione"
+        android:text="@string/description_placeholder"
         android:textSize="18sp"
         app:layout_constraintTop_toBottomOf="@id/temperatureTextView"
         app:layout_constraintStart_toStartOf="parent"
@@ -43,10 +43,12 @@
         android:id="@+id/refreshButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Aggiorna"
+        android:text="@string/refresh_button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginBottom="32dp"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Previsioni Meteo</string>
+    <string name="city_name_placeholder">Nome Città</string>
+    <string name="temperature_placeholder">Temperatura</string>
+    <string name="description_placeholder">Descrizione</string>
+    <string name="refresh_button">Aggiorna</string>
+    <string name="loading">Caricamento...</string>
+    <string name="error_message">Si è verificato un errore. Riprova.</string>
+</resources>
