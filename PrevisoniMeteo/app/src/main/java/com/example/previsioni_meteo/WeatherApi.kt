@@ -10,6 +10,14 @@ interface WeatherApi {
         @Query("units") units: String = "metric",
         @Query("appid") apiKey: String
     ): WeatherResponse
+
+    @GET("weather")
+    suspend fun getWeatherDataByCoordinates(
+        @Query("lat") latitude: Double,
+        @Query("lon") longitude: Double,
+        @Query("units") units: String = "metric",
+        @Query("appid") apiKey: String
+    ): WeatherResponse
 }
 
 data class WeatherResponse(

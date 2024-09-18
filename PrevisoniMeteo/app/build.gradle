@@ -43,4 +43,7 @@ dependencies {
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
+
+    // Google Play Services Location
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
 }
