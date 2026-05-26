@@ -1,22 +1,23 @@
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.label import MDLabel
-from kivymd.uix.button import MDRaisedButton, MDIconButton
+from kivymd.uix.button import MDRaisedButton
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.list import MDList
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.spinner import MDSpinner
-from kivymd.uix.toolbar import MDTopAppBar
 from kivy.metrics import dp
 from ui_components import WeatherGridItem, HourlyForecastCard, DailyForecastItem
 from utils import wind_direction_to_cardinal, wmo_code_to_italian, format_timestamp, format_hour
 import datetime
 
+
 class BaseScreen(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.app = None
+
 
 class HomeScreen(BaseScreen):
     def __init__(self, **kwargs):
@@ -31,7 +32,10 @@ class HomeScreen(BaseScreen):
             theme_text_color="Error",
             halign="center",
             bold=True,
-            adaptive_height=True
+            adaptive_height=True,
+            opacity=0,
+            height=0,
+            size_hint_y=None
         )
         self.timestamp_label = MDLabel(
             text="Ultimo aggiornamento: --/--/---- --:--",
@@ -42,7 +46,6 @@ class HomeScreen(BaseScreen):
         )
         self.header_layout.add_widget(self.offline_banner)
         self.header_layout.add_widget(self.timestamp_label)
-        self.offline_banner.opacity = 0
 
         # Location Info
         self.location_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="10dp")
@@ -50,15 +53,6 @@ class HomeScreen(BaseScreen):
         self.coords_label = MDLabel(text="Lat: -- | Lon: --", font_style="Caption", halign="center")
         self.location_layout.add_widget(self.city_label)
         self.location_layout.add_widget(self.coords_label)
-
-        # Current Weather
-        self.current_weather_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="20dp", spacing="10dp")
-        self.temp_label = MDLabel(text="--°C", font_style="H1", halign="center")
-        self.desc_label = MDLabel(text="--", font_style="H6", halign="center")
-        self.feels_like_label = MDLabel(text="Percepita: --°C", font_style="Subtitle1", halign="center", theme_text_color="Secondary")
-        self.current_weather_layout.add_widget(self.temp_label)
-        self.current_weather_layout.add_widget(self.desc_label)
-        self.current_weather_layout.add_widget(self.feels_like_label)
 
         # Loading Spinner
         self.spinner = MDSpinner(
@@ -69,6 +63,15 @@ class HomeScreen(BaseScreen):
             opacity=0
         )
         self.location_layout.add_widget(self.spinner)
+
+        # Current Weather
+        self.current_weather_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="20dp", spacing="10dp")
+        self.temp_label = MDLabel(text="--°C", font_style="H1", halign="center")
+        self.desc_label = MDLabel(text="--", font_style="H6", halign="center")
+        self.feels_like_label = MDLabel(text="Percepita: --°C", font_style="Subtitle1", halign="center", theme_text_color="Secondary")
+        self.current_weather_layout.add_widget(self.temp_label)
+        self.current_weather_layout.add_widget(self.desc_label)
+        self.current_weather_layout.add_widget(self.feels_like_label)
 
         # Weather Grid Data
         scroll_grid = MDScrollView()
@@ -92,9 +95,9 @@ class HomeScreen(BaseScreen):
         # Manual refresh
         refresh_layout = MDBoxLayout(adaptive_height=True, padding="10dp")
         refresh_btn = MDRaisedButton(text="Aggiorna Ora", pos_hint={"center_x": .5}, on_release=self.force_refresh)
-        refresh_layout.add_widget(MDLabel()) # Spacer
+        refresh_layout.add_widget(MDLabel())  # Spacer
         refresh_layout.add_widget(refresh_btn)
-        refresh_layout.add_widget(MDLabel()) # Spacer
+        refresh_layout.add_widget(MDLabel())  # Spacer
 
         # GPS Error Fallback Input
         self.manual_input_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="10dp", opacity=0)
@@ -137,7 +140,15 @@ class HomeScreen(BaseScreen):
 
     def update_ui(self, data, is_offline, city_name, lat, lon, accuracy=None):
         self.show_loading(False)
-        self.offline_banner.opacity = 1 if is_offline else 0
+
+        # FIX: Toggle offline banner visibility properly
+        if is_offline:
+            self.offline_banner.opacity = 1
+            self.offline_banner.height = dp(30)
+        else:
+            self.offline_banner.opacity = 0
+            self.offline_banner.height = 0
+
         self.timestamp_label.text = f"Ultimo aggiornamento: {format_timestamp(data.get('timestamp', ''))}"
         self.city_label.text = city_name
         acc_text = f" (±{int(accuracy)}m)" if accuracy else ""
@@ -172,6 +183,7 @@ class HomeScreen(BaseScreen):
         self.manual_input_layout.height = dp(150)
         self.manual_input_layout.size_hint_y = None
 
+
 class InfoScreen(BaseScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -183,6 +195,7 @@ class InfoScreen(BaseScreen):
             theme_text_color="Secondary"
         ))
         self.add_widget(layout)
+
 
 class HourlyScreen(BaseScreen):
     def __init__(self, **kwargs):
@@ -208,11 +221,19 @@ class HourlyScreen(BaseScreen):
         pops = hourly.get("precipitation_probability", [])
         wcodes = hourly.get("weather_code", [])
 
+        # FIX: Validate array lengths before iterating
+        min_len = min(len(times), len(temps), len(pops), len(wcodes))
+        if min_len == 0:
+            return
+
         now = datetime.datetime.now()
 
         count = 0
-        for i in range(len(times)):
-            dt = datetime.datetime.fromisoformat(times[i])
+        for i in range(min_len):
+            try:
+                dt = datetime.datetime.fromisoformat(times[i])
+            except (ValueError, TypeError):
+                continue
             if dt > now and count < 24:
                 desc, icon = wmo_code_to_italian(wcodes[i])
                 card = HourlyForecastCard(
@@ -223,6 +244,7 @@ class HourlyScreen(BaseScreen):
                 )
                 self.hourly_layout.add_widget(card)
                 count += 1
+
 
 class DailyScreen(BaseScreen):
     def __init__(self, **kwargs):
@@ -248,7 +270,10 @@ class DailyScreen(BaseScreen):
         min_temps = daily.get("temperature_2m_min", [])
         wcodes = daily.get("weather_code", [])
 
-        for i in range(len(times)):
+        # Validate array lengths
+        min_len = min(len(times), len(max_temps), len(min_temps), len(wcodes))
+
+        for i in range(min_len):
             item = DailyForecastItem(
                 day=times[i],
                 min_temp=min_temps[i],
