@@ -1,5 +1,3 @@
-import os
-
 # API Endpoints
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
@@ -10,9 +8,9 @@ GEOCODE_CACHE_FILE = "geocode_cache.json"
 
 # Timing
 GPS_UPDATE_INTERVAL = 300  # 5 minutes
-NOMINATIM_RATE_LIMIT = 1.0 # Max 1 req/sec
+NOMINATIM_RATE_LIMIT = 1.0  # Max 1 req/sec
 
-# Defaults
-DEFAULT_LAT = 41.9028  # Rome
+# Defaults (Rome, Italy)
+DEFAULT_LAT = 41.9028
 DEFAULT_LON = 12.4964
 DEFAULT_CITY = "Roma"
