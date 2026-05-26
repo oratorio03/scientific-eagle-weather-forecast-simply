@@ -1,13 +1,26 @@
 import datetime
+from typing import Optional, Tuple
 
-def wind_direction_to_cardinal(degrees):
+
+def wind_direction_to_cardinal(degrees: Optional[float]) -> str:
+    """Convert wind direction in degrees to cardinal direction."""
     if degrees is None:
         return "N/A"
     directions = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
     index = round(degrees / 45) % 8
     return directions[index]
 
-def wmo_code_to_italian(code):
+
+def wmo_code_to_italian(code: Optional[int]) -> Tuple[str, str]:
+    """
+    Convert WMO weather code to Italian description and Material icon name.
+
+    Returns:
+        Tuple of (description, icon_name)
+    """
+    if code is None:
+        return ("Sconosciuto", "cloud-question")
+
     weather_codes = {
         0: ("Cielo sereno", "weather-sunny"),
         1: ("Prevalentemente sereno", "weather-partly-cloudy"),
@@ -40,30 +53,36 @@ def wmo_code_to_italian(code):
     }
     return weather_codes.get(code, ("Sconosciuto", "cloud-question"))
 
-def format_timestamp(iso_string):
+
+def format_timestamp(iso_string: Optional[str]) -> str:
+    """Format ISO timestamp to Italian datetime string."""
     if not iso_string:
         return ""
     try:
         dt = datetime.datetime.fromisoformat(iso_string)
         return dt.strftime("%d/%m/%Y %H:%M")
-    except Exception:
-        return iso_string
+    except (ValueError, TypeError):
+        return str(iso_string)
 
-def get_day_name(iso_string):
+
+def get_day_name(iso_string: Optional[str]) -> str:
+    """Get Italian day name from ISO date string."""
     if not iso_string:
         return ""
     try:
         dt = datetime.datetime.fromisoformat(iso_string)
         giorni = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
         return giorni[dt.weekday()]
-    except Exception:
-        return iso_string
+    except (ValueError, TypeError):
+        return str(iso_string)
 
-def format_hour(iso_string):
+
+def format_hour(iso_string: Optional[str]) -> str:
+    """Extract hour:minute from ISO datetime string."""
     if not iso_string:
         return ""
     try:
         dt = datetime.datetime.fromisoformat(iso_string)
         return dt.strftime("%H:%M")
-    except Exception:
-        return iso_string
+    except (ValueError, TypeError):
+        return str(iso_string)
