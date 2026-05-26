@@ -1,16 +1,30 @@
+import threading
+import logging
+
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
+from kivymd.uix.screen import MDScreen
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.navigationdrawer import MDNavigationDrawer, MDNavigationLayout, MDNavigationDrawerMenu, MDNavigationDrawerItem, MDNavigationDrawerLabel
+from kivymd.uix.navigationdrawer import (
+    MDNavigationDrawer,
+    MDNavigationLayout,
+    MDNavigationDrawerMenu,
+    MDNavigationDrawerItem,
+    MDNavigationDrawerLabel,
+)
 from kivymd.uix.bottomnavigation import MDBottomNavigation, MDBottomNavigationItem
 from kivymd.uix.toolbar import MDTopAppBar
 from kivy.clock import Clock
-from kivy.core.window import Window
+
 from screens import HomeScreen, HourlyScreen, DailyScreen, InfoScreen
 from gps_service import GPSService
 from weather_service import WeatherService
 from config import DEFAULT_LAT, DEFAULT_LON, DEFAULT_CITY
-import threading
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("SkyView")
+
 
 class SkyViewApp(MDApp):
     def build(self):
@@ -25,11 +39,13 @@ class SkyViewApp(MDApp):
         self.current_lat = DEFAULT_LAT
         self.current_lon = DEFAULT_LON
         self.current_city = DEFAULT_CITY
+        self.current_accuracy = None
+
+        # Thread lock for coordinate updates
+        self._coord_lock = threading.Lock()
 
         # Main Layout
         self.nav_layout = MDNavigationLayout()
-
-        from kivymd.uix.screen import MDScreen
 
         # Screen Manager
         self.sm = MDScreenManager()
@@ -72,8 +88,7 @@ class SkyViewApp(MDApp):
         self.daily_screen.app = self
         daily_item.add_widget(self.daily_screen)
 
-        # Info Item (accessible only via drawer, but we need it in sm or bottom_nav. Let's add it as a hidden bottom nav item or a separate screen in sm)
-        # To keep it simple, we add it to the bottom nav but rely on the drawer to switch to it
+        # Info Item
         info_item = MDBottomNavigationItem(name="info", text="Info", icon="information")
         self.info_screen = InfoScreen(name="info_content")
         self.info_screen.app = self
@@ -125,9 +140,13 @@ class SkyViewApp(MDApp):
             threading.Thread(target=self._load_cache_thread, args=(cached,), daemon=True).start()
 
     def _load_cache_thread(self, cached):
-        city = self.gps_service.get_city_name(DEFAULT_LAT, DEFAULT_LON)
-        self.current_city = city
-        Clock.schedule_once(lambda dt: self._apply_cache(cached))
+        try:
+            city = self.gps_service.get_city_name(DEFAULT_LAT, DEFAULT_LON)
+            with self._coord_lock:
+                self.current_city = city
+            Clock.schedule_once(lambda dt: self._apply_cache(cached))
+        except Exception as e:
+            logger.error(f"Error loading cache thread: {e}")
 
     def _apply_cache(self, cached):
         self._update_all_screens(cached, True)
@@ -141,8 +160,6 @@ class SkyViewApp(MDApp):
     def on_location_update(self, **kwargs):
         lat = kwargs.get('lat')
         lon = kwargs.get('lon')
-        # Kivy Plyer might provide accuracy, but kwargs structure is platform dependent.
-        # We attempt to fetch it or default to None
         self.current_accuracy = kwargs.get('accuracy', None)
         if lat and lon:
             self.update_weather(lat=lat, lon=lon)
@@ -152,27 +169,44 @@ class SkyViewApp(MDApp):
             self.home_screen.show_gps_error()
 
     def update_weather(self, force=False, lat=None, lon=None):
-        if lat is not None and lon is not None:
-            self.current_lat = lat
-            self.current_lon = lon
+        with self._coord_lock:
+            if lat is not None and lon is not None:
+                self.current_lat = lat
+                self.current_lon = lon
+            # Copy coordinates for thread safety
+            thread_lat = self.current_lat
+            thread_lon = self.current_lon
 
         self.top_bar.title = "SkyView - Aggiornamento..."
         self.home_screen.show_loading(True)
-        threading.Thread(target=self._fetch_weather_thread, daemon=True).start()
+        threading.Thread(
+            target=self._fetch_weather_thread,
+            args=(thread_lat, thread_lon),
+            daemon=True
+        ).start()
 
-    def _fetch_weather_thread(self):
-        # Heavy work in thread: reverse geocoding & open-meteo API
-        city = self.gps_service.get_city_name(self.current_lat, self.current_lon)
-        self.current_city = city
-        data, is_offline = self.weather_service.fetch_weather(self.current_lat, self.current_lon)
+    # FIX: Pass coordinates as arguments instead of accessing shared state
+    def _fetch_weather_thread(self, lat, lon):
+        try:
+            city = self.gps_service.get_city_name(lat, lon)
+            with self._coord_lock:
+                self.current_city = city
+            data, is_offline = self.weather_service.fetch_weather(lat, lon)
 
-        # Update UI on Main Thread
-        Clock.schedule_once(lambda dt: self._update_all_screens(data, is_offline))
+            # Update UI on Main Thread
+            Clock.schedule_once(lambda dt: self._update_all_screens(data, is_offline))
+        except Exception as e:
+            logger.error(f"Error fetching weather: {e}")
+            Clock.schedule_once(lambda dt: self._update_all_screens(None, True))
 
     def _update_all_screens(self, data, is_offline):
         if data:
             acc = getattr(self, 'current_accuracy', None)
-            self.home_screen.update_ui(data, is_offline, self.current_city, self.current_lat, self.current_lon, accuracy=acc)
+            with self._coord_lock:
+                city = self.current_city
+                lat = self.current_lat
+                lon = self.current_lon
+            self.home_screen.update_ui(data, is_offline, city, lat, lon, accuracy=acc)
             self.hourly_screen.update_ui(data)
             self.daily_screen.update_ui(data)
             self.top_bar.title = "SkyView"
@@ -181,6 +215,7 @@ class SkyViewApp(MDApp):
 
     def on_stop(self):
         self.gps_service.stop_gps()
+
 
 if __name__ == "__main__":
     SkyViewApp().run()
