@@ -259,8 +259,9 @@ class WorldCupBettingApp(MDApp):
 
     def build(self):
         self.bet_manager = BetManager()
-        # Inserisci qui la tua API Key di api-football
-        self.api_service = ApiFootballService(api_key="INSERISCI_LA_TUA_API_KEY_QUI")
+        # Inserisci qui la tua API Key di api-football o impostala come variabile d'ambiente
+        api_key = os.environ.get("API_FOOTBALL_KEY", "INSERISCI_LA_TUA_API_KEY_QUI")
+        self.api_service = ApiFootballService(api_key=api_key)
 
         self.theme_cls.primary_palette = "Green"
         self.theme_cls.theme_style = "Light"
