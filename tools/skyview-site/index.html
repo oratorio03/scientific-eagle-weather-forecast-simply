@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyView - Fix Automatico GitHub</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+.container { max-width: 700px; margin: 0 auto; }
+h1 { color: #58a6ff; margin-bottom: 10px; font-size: 26px; }
+.subtitle { color: #8b949e; margin-bottom: 25px; font-size: 15px; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.card h2 { color: #f0883e; margin-bottom: 15px; font-size: 18px; }
+.card p { color: #8b949e; margin-bottom: 12px; line-height: 1.6; font-size: 14px; }
+.card ol { padding-left: 20px; color: #8b949e; }
+.card ol li { margin-bottom: 8px; font-size: 14px; }
+.card a { color: #58a6ff; }
+input[type="text"] {
+    width: 100%; padding: 12px 15px; background: #0d1117; border: 1px solid #30363d;
+    border-radius: 8px; color: #c9d1d9; font-size: 14px; font-family: monospace;
+}
+input[type="text"]:focus { outline: none; border-color: #58a6ff; }
+.btn {
+    display: inline-block; padding: 12px 24px; border-radius: 8px; border: none;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.btn-green { background: #238636; color: white; }
+.btn-green:hover { background: #2ea043; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+#log { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 13px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; color: #8b949e; }
+#log .ok { color: #3fb950; }
+#log .err { color: #f85149; }
+#log .warn { color: #f0883e; }
+#log .info { color: #58a6ff; }
+.hidden { display: none; }
+.token-box { display: flex; gap: 10px; align-items: center; }
+.token-box input { flex: 1; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #8b949e; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.success-box { background: #23863622; border: 1px solid #238636; border-radius: 8px; padding: 15px; margin-top: 15px; }
+.success-box p { color: #3fb950 !important; margin: 0 !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SkyView Fix Automatico</h1>
+<p class="subtitle">Corregge automaticamente il repository GitHub. Devi solo incollare un token.</p>
+
+<div class="card">
+    <h2>Passo 1: Ottieni il token (30 secondi)</h2>
+    <ol>
+        <li>Apri questa pagina: <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a></li>
+        <li>In <strong>"Note"</strong> scrivi: <code style="background:#21262d;padding:2px 8px;border-radius:4px;">SkyView Fix</code></li>
+        <li>Spunta solo <strong>"repo"</strong> (per modificare i tuoi repository)</li>
+        <li>Clicca <strong>"Generate token"</strong> in fondo</li>
+        <li>Copia il token (stringa che inizia con <code style="background:#21262d;padding:2px 8px;border-radius:4px;">ghp_</code>)</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h2>Passo 2: Incolla il token e clicca Fix</h2>
+    <div class="token-box">
+        <input type="text" id="token" placeholder="Incolla qui il token GitHub...">
+        <button class="btn btn-green" id="fixBtn" onclick="runFix()">AVVIA FIX</button>
+    </div>
+    <div id="loading" class="hidden" style="margin-top:15px;">
+        <span class="spinner"></span> <span style="color:#8b949e;font-size:14px;">Operazione in corso...</span>
+    </div>
+</div>
+
+<div class="card hidden" id="logCard">
+    <h2>Risultato</h2>
+    <div id="log"></div>
+</div>
+
+</div>
+
+<script>
+const REPO = "oratorio03/scientific-eagle-weather-forecast-simply";
+const BRANCH = "main";
+const FILES = {
+    "ui_components.py": `from kivymd.uix.card import MDCard\nfrom kivymd.uix.boxlayout import MDBoxLayout\nfrom kivymd.uix.label import MDLabel\nfrom kivymd.uix.list import TwoLineAvatarIconListItem, IconLeftWidget\nfrom kivymd.uix.button import MDIconButton\nfrom kivy.properties import StringProperty\nfrom utils import wmo_code_to_italian, get_day_name, format_hour\n\n\nclass WeatherGridItem(MDBoxLayout):\n    title = StringProperty("")\n    value = StringProperty("")\n\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.orientation = "vertical"\n        self.adaptive_height = True\n        self.padding = "8dp"\n        self.title_label = MDLabel(text=self.title, font_style="Caption", halign="center", theme_text_color="Secondary")\n        self.value_label = MDLabel(text=self.value, font_style="Body1", halign="center", bold=True)\n        self.add_widget(self.title_label)\n        self.add_widget(self.value_label)\n    def on_title(self, instance, value):\n        if hasattr(self, 'title_label'): self.title_label.text = value\n    def on_value(self, instance, value):\n        if hasattr(self, 'value_label'): self.value_label.text = value\n\n\nclass HourlyForecastCard(MDCard):\n    hour = StringProperty("")\n    temp = StringProperty("")\n    icon = StringProperty("weather-sunny")\n    pop = StringProperty("")\n\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.orientation = "vertical"\n        self.size_hint = (None, None)\n        self.size = ("80dp", "120dp")\n        self.padding = "8dp"\n        self.radius = 12\n        self.hour_label = MDLabel(text=self.hour, font_style="Caption", halign="center")\n        self.icon_widget = MDIconButton(icon=self.icon, pos_hint={"center_x":0.5}, theme_text_color="Primary")\n        self.temp_label = MDLabel(text=self.temp, font_style="Body1", halign="center", bold=True)\n        self.pop_label = MDLabel(text=self.pop, font_style="Caption", halign="center", theme_text_color="Secondary")\n        self.add_widget(self.hour_label)\n        self.add_widget(self.icon_widget)\n        self.add_widget(self.temp_label)\n        self.add_widget(self.pop_label)\n    def on_hour(self, instance, value):\n        if hasattr(self, 'hour_label'): self.hour_label.text = value\n    def on_temp(self, instance, value):\n        if hasattr(self, 'temp_label'): self.temp_label.text = value\n    def on_icon(self, instance, value):\n        if hasattr(self, 'icon_widget'): self.icon_widget.icon = value\n    def on_pop(self, instance, value):\n        if hasattr(self, 'pop_label'): self.pop_label.text = value\n\n\nclass DailyForecastItem(TwoLineAvatarIconListItem):\n    def __init__(self, day, min_temp, max_temp, weather_code, **kwargs):\n        desc, icon = wmo_code_to_italian(weather_code)\n        super().__init__(**kwargs)\n        self.text = f"{get_day_name(day)} - {desc}"\n        self.secondary_text = f"Min: {min_temp}C | Max: {max_temp}C"\n        self.add_widget(IconLeftWidget(icon=icon))`,
+
+    "screens.py": `from kivymd.uix.screen import MDScreen\nfrom kivymd.uix.boxlayout import MDBoxLayout\nfrom kivymd.uix.label import MDLabel\nfrom kivymd.uix.button import MDRaisedButton\nfrom kivymd.uix.scrollview import MDScrollView\nfrom kivymd.uix.gridlayout import MDGridLayout\nfrom kivymd.uix.list import MDList\nfrom kivymd.uix.textfield import MDTextField\nfrom kivymd.uix.spinner import MDSpinner\nfrom kivy.metrics import dp\nfrom ui_components import WeatherGridItem, HourlyForecastCard, DailyForecastItem\nfrom utils import wind_direction_to_cardinal, wmo_code_to_italian, format_timestamp, format_hour\nimport datetime\n\nclass BaseScreen(MDScreen):\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.app = None\n\nclass HomeScreen(BaseScreen):\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        main_layout = MDBoxLayout(orientation='vertical')\n        self.header_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="10dp")\n        self.offline_banner = MDLabel(text="Dati in cache - non aggiornati", theme_text_color="Error", halign="center", bold=True, adaptive_height=True, opacity=0, height=0, size_hint_y=None)\n        self.timestamp_label = MDLabel(text="Ultimo aggiornamento: --/--/---- --:--", font_style="Caption", halign="center", theme_text_color="Secondary", adaptive_height=True)\n        self.header_layout.add_widget(self.offline_banner)\n        self.header_layout.add_widget(self.timestamp_label)\n        self.location_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="10dp")\n        self.city_label = MDLabel(text="Cerco posizione...", font_style="H4", halign="center", bold=True)\n        self.coords_label = MDLabel(text="Lat: -- | Lon: --", font_style="Caption", halign="center")\n        self.location_layout.add_widget(self.city_label)\n        self.location_layout.add_widget(self.coords_label)\n        self.spinner = MDSpinner(size_hint=(None,None), size=(dp(46),dp(46)), pos_hint={'center_x':.5}, active=False, opacity=0)\n        self.location_layout.add_widget(self.spinner)\n        self.current_weather_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="20dp", spacing="10dp")\n        self.temp_label = MDLabel(text="--C", font_style="H1", halign="center")\n        self.desc_label = MDLabel(text="--", font_style="H6", halign="center")\n        self.feels_like_label = MDLabel(text="Percepita: --C", font_style="Subtitle1", halign="center", theme_text_color="Secondary")\n        self.current_weather_layout.add_widget(self.temp_label)\n        self.current_weather_layout.add_widget(self.desc_label)\n        self.current_weather_layout.add_widget(self.feels_like_label)\n        scroll_grid = MDScrollView()\n        self.grid_layout = MDGridLayout(cols=3, adaptive_height=True, padding="10dp", spacing="10dp")\n        self.grid_items = {'umidita':WeatherGridItem(title="Umidita"),'pressione':WeatherGridItem(title="Pressione"),'vento':WeatherGridItem(title="Vento"),'raffiche':WeatherGridItem(title="Raffiche"),'nuvole':WeatherGridItem(title="Nuvole"),'pioggia':WeatherGridItem(title="Precipitazioni"),'uv':WeatherGridItem(title="Indice UV")}\n        for item in self.grid_items.values():\n            self.grid_layout.add_widget(item)\n        scroll_grid.add_widget(self.grid_layout)\n        refresh_layout = MDBoxLayout(adaptive_height=True, padding="10dp")\n        refresh_btn = MDRaisedButton(text="Aggiorna Ora", pos_hint={"center_x":.5}, on_release=self.force_refresh)\n        refresh_layout.add_widget(MDLabel())\n        refresh_layout.add_widget(refresh_btn)\n        refresh_layout.add_widget(MDLabel())\n        self.manual_input_layout = MDBoxLayout(orientation='vertical', adaptive_height=True, padding="10dp", opacity=0)\n        self.manual_input_layout.size_hint_y = None\n        self.manual_input_layout.height = 0\n        self.lat_input = MDTextField(hint_text="Latitudine")\n        self.lon_input = MDTextField(hint_text="Longitudine")\n        manual_btn = MDRaisedButton(text="Cerca Coordinate", pos_hint={"center_x":.5}, on_release=self.manual_search)\n        self.manual_input_layout.add_widget(MDLabel(text="GPS Non Disponibile", theme_text_color="Error", halign="center"))\n        self.manual_input_layout.add_widget(self.lat_input)\n        self.manual_input_layout.add_widget(self.lon_input)\n        self.manual_input_layout.add_widget(manual_btn)\n        main_layout.add_widget(self.header_layout)\n        main_layout.add_widget(self.location_layout)\n        main_layout.add_widget(self.current_weather_layout)\n        main_layout.add_widget(scroll_grid)\n        main_layout.add_widget(self.manual_input_layout)\n        main_layout.add_widget(refresh_layout)\n        self.add_widget(main_layout)\n    def show_loading(self, active=True):\n        self.spinner.active = active\n        self.spinner.opacity = 1 if active else 0\n    def force_refresh(self, instance):\n        if self.app: self.app.update_weather(force=True)\n    def manual_search(self, instance):\n        if self.app:\n            try:\n                lat=float(self.lat_input.text); lon=float(self.lon_input.text)\n                self.app.update_weather(lat=lat, lon=lon)\n            except ValueError: pass\n    def update_ui(self, data, is_offline, city_name, lat, lon, accuracy=None):\n        self.show_loading(False)\n        if is_offline:\n            self.offline_banner.opacity=1; self.offline_banner.height=dp(30)\n        else:\n            self.offline_banner.opacity=0; self.offline_banner.height=0\n        self.timestamp_label.text=f"Ultimo aggiornamento: {format_timestamp(data.get('timestamp',''))}"\n        self.city_label.text=city_name\n        acc_text=f" (+-{int(accuracy)}m)" if accuracy else ""\n        self.coords_label.text=f"Lat: {lat:.6f} | Lon: {lon:.6f}{acc_text}"\n        current=data.get("current",{})\n        self.temp_label.text=f"{current.get('temperature_2m','--')}C"\n        self.feels_like_label.text=f"Percepita: {current.get('apparent_temperature','--')}C"\n        wcode=current.get('weather_code',-1)\n        desc,icon=wmo_code_to_italian(wcode)\n        self.desc_label.text=desc\n        self.grid_items['umidita'].value=f"{current.get('relative_humidity_2m','--')} %"\n        self.grid_items['pressione'].value=f"{current.get('pressure_msl','--')} hPa"\n        self.grid_items['vento'].value=f"{current.get('wind_speed_10m','--')} km/h {wind_direction_to_cardinal(current.get('wind_direction_10m'))}"\n        self.grid_items['raffiche'].value=f"{current.get('wind_gusts_10m','--')} km/h"\n        self.grid_items['nuvole'].value=f"{current.get('cloud_cover','--')}%"\n        self.grid_items['pioggia'].value=f"{current.get('precipitation','--')} mm"\n        self.grid_items['uv'].value=f"{current.get('uv_index','--')}"\n    def show_gps_error(self):\n        self.manual_input_layout.opacity=1; self.manual_input_layout.height=dp(150); self.manual_input_layout.size_hint_y=None\n\nclass InfoScreen(BaseScreen):\n    def __init__(self,**kwargs):\n        super().__init__(**kwargs)\n        layout=MDBoxLayout(orientation='vertical',padding="20dp",spacing="10dp")\n        layout.add_widget(MDLabel(text="Informazioni",font_style="H4",halign="center",adaptive_height=True))\n        layout.add_widget(MDLabel(text="SkyView v1.0\\nApp Meteo Iper-Locale basata sulle coordinate GPS esatte.\\n\\nSorgenti Dati:\\n- Previsioni: Open-Meteo\\n- Reverse Geocoding: Nominatim OpenStreetMap\\n\\nNessuna API Key richiesta.",halign="center",theme_text_color="Secondary"))\n        self.add_widget(layout)\n\nclass HourlyScreen(BaseScreen):\n    def __init__(self,**kwargs):\n        super().__init__(**kwargs)\n        layout=MDBoxLayout(orientation='vertical')\n        self.scroll=MDScrollView(do_scroll_x=True,do_scroll_y=False)\n        self.hourly_layout=MDBoxLayout(orientation='horizontal',adaptive_width=True,padding="10dp",spacing="10dp")\n        self.scroll.add_widget(self.hourly_layout)\n        layout.add_widget(MDLabel(text="Previsioni 24 Ore",font_style="H5",halign="center",adaptive_height=True,padding=(0,"20dp")))\n        layout.add_widget(self.scroll)\n        self.add_widget(layout)\n    def update_ui(self,data):\n        self.hourly_layout.clear_widgets()\n        hourly=data.get("hourly",{})\n        if not hourly: return\n        times=hourly.get("time",[]); temps=hourly.get("temperature_2m",[]); pops=hourly.get("precipitation_probability",[]); wcodes=hourly.get("weather_code",[])\n        min_len=min(len(times),len(temps),len(pops),len(wcodes))\n        if min_len==0: return\n        now=datetime.datetime.now(); count=0\n        for i in range(min_len):\n            try: dt=datetime.datetime.fromisoformat(times[i])\n            except (ValueError,TypeError): continue\n            if dt>now and count<24:\n                desc,icon=wmo_code_to_italian(wcodes[i])\n                card=HourlyForecastCard(hour=format_hour(times[i]),temp=f"{temps[i]}C",icon=icon,pop=f"{pops[i]}%")\n                self.hourly_layout.add_widget(card); count+=1\n\nclass DailyScreen(BaseScreen):\n    def __init__(self,**kwargs):\n        super().__init__(**kwargs)\n        layout=MDBoxLayout(orientation='vertical')\n        layout.add_widget(MDLabel(text="Previsioni 7 Giorni",font_style="H5",halign="center",adaptive_height=True,padding=(0,"20dp")))\n        scroll=MDScrollView(); self.list_layout=MDList(); scroll.add_widget(self.list_layout)\n        layout.add_widget(scroll); self.add_widget(layout)\n    def update_ui(self,data):\n        self.list_layout.clear_widgets()\n        daily=data.get("daily",{})\n        if not daily: return\n        times=daily.get("time",[]); max_temps=daily.get("temperature_2m_max",[]); min_temps=daily.get("temperature_2m_min",[]); wcodes=daily.get("weather_code",[])\n        min_len=min(len(times),len(max_temps),len(min_temps),len(wcodes))\n        for i in range(min_len):\n            item=DailyForecastItem(day=times[i],min_temp=min_temps[i],max_temp=max_temps[i],weather_code=wcodes[i])\n            self.list_layout.add_widget(item)`,
+
+    "main.py": `import threading\nimport logging\nfrom kivymd.app import MDApp\nfrom kivymd.uix.screenmanager import MDScreenManager\nfrom kivymd.uix.screen import MDScreen\nfrom kivymd.uix.boxlayout import MDBoxLayout\nfrom kivymd.uix.navigationdrawer import MDNavigationDrawer,MDNavigationLayout,MDNavigationDrawerMenu,MDNavigationDrawerItem,MDNavigationDrawerLabel\nfrom kivymd.uix.bottomnavigation import MDBottomNavigation,MDBottomNavigationItem\nfrom kivymd.uix.toolbar import MDTopAppBar\nfrom kivy.clock import Clock\nfrom screens import HomeScreen,HourlyScreen,DailyScreen,InfoScreen\nfrom gps_service import GPSService\nfrom weather_service import WeatherService\nfrom config import DEFAULT_LAT,DEFAULT_LON,DEFAULT_CITY\nlogging.basicConfig(level=logging.INFO)\nlogger=logging.getLogger("SkyView")\nclass SkyViewApp(MDApp):\n    def build(self):\n        self.theme_cls.theme_style="Light"; self.theme_cls.primary_palette="Blue"; self.theme_cls.accent_palette="Teal"; self.theme_cls.material_style="M3"\n        self.gps_service=GPSService(); self.weather_service=WeatherService()\n        self.current_lat=DEFAULT_LAT; self.current_lon=DEFAULT_LON; self.current_city=DEFAULT_CITY; self.current_accuracy=None\n        self._coord_lock=threading.Lock()\n        self.nav_layout=MDNavigationLayout(); self.sm=MDScreenManager()\n        main_screen_wrapper=MDScreen(name="main_wrapper"); main_layout=MDBoxLayout(orientation='vertical')\n        self.top_bar=MDTopAppBar(title="SkyView",elevation=4,pos_hint={"top":1},md_bg_color=self.theme_cls.primary_color,specific_text_color=self.theme_cls.primary_light,left_action_items=[["menu",lambda x:self.nav_drawer.set_state("open")]])\n        main_layout.add_widget(self.top_bar)\n        self.bottom_nav=MDBottomNavigation(selected_color_background="eeeaea",text_color_active="lightgrey")\n        for name,text,icon in [("home","Oggi","calendar-today"),("hourly","24 Ore","clock-outline"),("daily","7 Giorni","calendar-week"),("info","Info","information")]:\n            item=MDBottomNavigationItem(name=name,text=text,icon=icon)\n            screen={'home':HomeScreen,'hourly':HourlyScreen,'daily':DailyScreen,'info':InfoScreen}[name](name=f"{name}_content")\n            screen.app=self; item.add_widget(screen)\n            setattr(self,f"{name}_screen",screen)\n            self.bottom_nav.add_widget(item)\n        main_layout.add_widget(self.bottom_nav)\n        main_screen_wrapper.add_widget(main_layout)\n        self.sm.add_widget(main_screen_wrapper); self.nav_layout.add_widget(self.sm)\n        self.nav_drawer=MDNavigationDrawer(); menu=MDNavigationDrawerMenu()\n        menu.add_widget(MDNavigationDrawerLabel(text="Menu Principale"))\n        for text,icon,target in [("Posizione Attuale","map-marker","home"),("Previsioni Orarie","clock-outline","hourly"),("Previsioni 7 Giorni","calendar-week","daily"),("Info","information","info")]:\n            item=MDNavigationDrawerItem(text=text,icon=icon)\n            item.bind(on_release=lambda x,t=target:self.drawer_select(t))\n            menu.add_widget(item)\n        self.nav_drawer.add_widget(menu); self.nav_layout.add_widget(self.nav_drawer)\n        return self.nav_layout\n    def on_start(self):\n        self.top_bar.title="SkyView - Aggiornamento..."; self.home_screen.show_loading(True)\n        self.gps_service.start_gps(self.on_location_update,self.on_gps_status)\n        cached=self.weather_service._load_cache()\n        if cached: threading.Thread(target=self._load_cache_thread,args=(cached,),daemon=True).start()\n    def _load_cache_thread(self,cached):\n        try:\n            city=self.gps_service.get_city_name(DEFAULT_LAT,DEFAULT_LON)\n            with self._coord_lock: self.current_city=city\n            Clock.schedule_once(lambda dt:self._apply_cache(cached))\n        except Exception as e: logger.error(f"Cache error:{e}")\n    def _apply_cache(self,cached): self._update_all_screens(cached,True); self.top_bar.title="SkyView (Offline)"\n    def drawer_select(self,target): self.nav_drawer.set_state("close");\n        if target in ["home","hourly","daily","info"]: self.bottom_nav.switch_tab(target)\n    def on_location_update(self,**kwargs):\n        lat=kwargs.get('lat'); lon=kwargs.get('lon'); self.current_accuracy=kwargs.get('accuracy',None)\n        if lat and lon: self.update_weather(lat=lat,lon=lon)\n    def on_gps_status(self,stype,status):\n        if stype=='provider-disabled': self.home_screen.show_gps_error()\n    def update_weather(self,force=False,lat=None,lon=None):\n        with self._coord_lock:\n            if lat is not None and lon is not None: self.current_lat=lat; self.current_lon=lon\n            thread_lat=self.current_lat; thread_lon=self.current_lon\n        self.top_bar.title="SkyView - Aggiornamento..."; self.home_screen.show_loading(True)\n        threading.Thread(target=self._fetch_weather_thread,args=(thread_lat,thread_lon),daemon=True).start()\n    def _fetch_weather_thread(self,lat,lon):\n        try:\n            city=self.gps_service.get_city_name(lat,lon)\n            with self._coord_lock: self.current_city=city\n            data,is_offline=self.weather_service.fetch_weather(lat,lon)\n            Clock.schedule_once(lambda dt:self._update_all_screens(data,is_offline))\n        except Exception as e:\n            logger.error(f"Fetch error:{e}")\n            Clock.schedule_once(lambda dt:self._update_all_screens(None,True))\n    def _update_all_screens(self,data,is_offline):\n        if data:\n            acc=getattr(self,'current_accuracy',None)\n            with self._coord_lock: city=self.current_city; lat=self.current_lat; lon=self.current_lon\n            self.home_screen.update_ui(data,is_offline,city,lat,lon,accuracy=acc)\n            self.hourly_screen.update_ui(data); self.daily_screen.update_ui(data)\n            self.top_bar.title="SkyView"\n        else: self.top_bar.title="SkyView - Errore Rete"\n    def on_stop(self): self.gps_service.stop_gps()\nif __name__=="__main__": SkyViewApp().run()`,
+
+    "weather_service.py": `import json\nimport os\nimport logging\nimport datetime\nimport requests\nfrom config import OPEN_METEO_URL, CACHE_FILE\nlogger=logging.getLogger("SkyView.WeatherService")\nclass WeatherService:\n    def __init__(self): self.cached_data=None; self.is_offline=False\n    def fetch_weather(self,lat,lon):\n        params={"latitude":lat,"longitude":lon,"current":"temperature_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,uv_index","hourly":"temperature_2m,precipitation_probability,weather_code","daily":"weather_code,temperature_2m_max,temperature_2m_min","timezone":"auto"}\n        try:\n            response=requests.get(OPEN_METEO_URL,params=params,timeout=10)\n            if response.status_code==200:\n                data=response.json(); data['timestamp']=datetime.datetime.now().isoformat()\n                self._save_cache(data); self.cached_data=data; self.is_offline=False\n                logger.info(f"Weather fetched for ({lat},{lon})")\n                return data,False\n            else:\n                logger.warning(f"Open-Meteo status {response.status_code}")\n                return self._load_cache(),True\n        except requests.exceptions.Timeout: logger.error("Timeout"); return self._load_cache(),True\n        except requests.exceptions.ConnectionError: logger.error("Connection error"); return self._load_cache(),True\n        except Exception as e: logger.error(f"Error:{e}"); return self._load_cache(),True\n    def _save_cache(self,data):\n        try:\n            with open(CACHE_FILE,'w',encoding='utf-8') as f: json.dump(data,f,ensure_ascii=False,indent=2)\n        except (OSError,TypeError) as e: logger.error(f"Save cache error:{e}")\n    def _load_cache(self):\n        self.is_offline=True\n        if os.path.exists(CACHE_FILE):\n            try:\n                with open(CACHE_FILE,'r',encoding='utf-8') as f: self.cached_data=json.load(f); return self.cached_data\n            except (OSError,json.JSONDecodeError) as e: logger.error(f"Load cache error:{e}")\n        return None`,
+
+    "gps_service.py": `import json\nimport os\nimport time\nimport logging\nimport requests\nfrom plyer import gps\nfrom config import NOMINATIM_URL,GEOCODE_CACHE_FILE,DEFAULT_LAT,DEFAULT_LON,DEFAULT_CITY,NOMINATIM_RATE_LIMIT\nlogger=logging.getLogger("SkyView.GPSService")\nclass GPSService:\n    def __init__(self): self.lat=None; self.lon=None; self.city_name=None; self.gps_active=False; self.last_geocode_time=0; self.geocode_cache=self._load_geocode_cache()\n    def start_gps(self,on_location_update,on_status_change=None):\n        try:\n            gps.configure(on_location=on_location_update,on_status=on_status_change)\n            gps.start(minTime=300000,minDistance=100); self.gps_active=True; logger.info("GPS started")\n        except NotImplementedError:\n            logger.warning("GPS not supported, using default"); self.lat=DEFAULT_LAT; self.lon=DEFAULT_LON; self.gps_active=False\n            if on_location_update: on_location_update(lat=self.lat,lon=self.lon)\n        except Exception as e:\n            logger.error(f"GPS error:{e}"); self.lat=DEFAULT_LAT; self.lon=DEFAULT_LON; self.gps_active=False\n            if on_location_update: on_location_update(lat=self.lat,lon=self.lon)\n    def stop_gps(self):\n        if self.gps_active:\n            try: gps.stop(); self.gps_active=False; logger.info("GPS stopped")\n            except Exception as e: logger.warning(f"Stop GPS error:{e}")\n    def _load_geocode_cache(self):\n        if os.path.exists(GEOCODE_CACHE_FILE):\n            try:\n                with open(GEOCODE_CACHE_FILE,'r',encoding='utf-8') as f: return json.load(f)\n            except (OSError,json.JSONDecodeError) as e: logger.warning(f"Load geocode cache error:{e}")\n        return {}\n    def _save_geocode_cache(self):\n        try:\n            with open(GEOCODE_CACHE_FILE,'w',encoding='utf-8') as f: json.dump(self.geocode_cache,f,ensure_ascii=False,indent=2)\n        except OSError as e: logger.warning(f"Save geocode cache error:{e}")\n    def get_city_name(self,lat,lon):\n        cache_key=f"{round(lat,3)},{round(lon,3)}"\n        if cache_key in self.geocode_cache: return self.geocode_cache[cache_key]\n        time_since=time.time()-self.last_geocode_time\n        if time_since<NOMINATIM_RATE_LIMIT: time.sleep(NOMINATIM_RATE_LIMIT-time_since)\n        try:\n            response=requests.get(NOMINATIM_URL,params={'lat':lat,'lon':lon,'format':'json','zoom':10,'addressdetails':1},headers={'User-Agent':'SkyViewWeatherApp/1.0'},timeout=5)\n            self.last_geocode_time=time.time()\n            if response.status_code==200:\n                address=response.json().get('address',{})\n                city=address.get('city')or address.get('town')or address.get('village')or address.get('county')or DEFAULT_CITY\n                self.geocode_cache[cache_key]=city; self._save_geocode_cache(); return city\n        except requests.exceptions.Timeout: logger.error("Nominatim timeout")\n        except requests.exceptions.ConnectionError: logger.error("Nominatim connection error")\n        except Exception as e: logger.error(f"Geocode error:{e}")\n        return DEFAULT_CITY`,
+
+    "utils.py": `import datetime\n\ndef wind_direction_to_cardinal(degrees):\n    if degrees is None: return "N/A"\n    directions=["N","NE","E","SE","S","SO","O","NO"]\n    return directions[round(degrees/45)%8]\n\ndef wmo_code_to_italian(code):\n    codes={0:("Cielo sereno","weather-sunny"),1:("Prevalentemente sereno","weather-partly-cloudy"),2:("Parzialmente nuvoloso","weather-partly-cloudy"),3:("Coperto","weather-cloudy"),45:("Nebbia","weather-fog"),48:("Nebbia con brina","weather-fog"),51:("Pioviggine leggera","weather-rainy"),53:("Pioviggine moderata","weather-rainy"),55:("Pioviggine fitta","weather-pouring"),56:("Pioviggine gelata leggera","weather-snowy-rainy"),57:("Pioviggine gelata fitta","weather-snowy-rainy"),61:("Pioggia debole","weather-rainy"),63:("Pioggia moderata","weather-pouring"),65:("Pioggia forte","weather-pouring"),66:("Pioggia gelata debole","weather-snowy-rainy"),67:("Pioggia gelata forte","weather-snowy-rainy"),71:("Neve debole","weather-snowy"),73:("Neve moderata","weather-snowy"),75:("Neve forte","weather-snowy-heavy"),77:("Neve granulare","weather-hail"),80:("Rovesci di pioggia deboli","weather-partly-rainy"),81:("Rovesci di pioggia moderati","weather-pouring"),82:("Rovesci di pioggia violenti","weather-pouring"),85:("Rovesci di neve deboli","weather-snowy"),86:("Rovesci di neve forti","weather-snowy-heavy"),95:("Temporale","weather-lightning"),96:("Temporale con grandine leggera","weather-lightning-rainy"),99:("Temporale con grandine forte","weather-lightning-rainy")}\n    return codes.get(code,("Sconosciuto","cloud-question"))\n\ndef format_timestamp(iso_string):\n    if not iso_string: return ""\n    try: return datetime.datetime.fromisoformat(iso_string).strftime("%d/%m/%Y %H:%M")\n    except (ValueError,TypeError): return str(iso_string)\n\ndef get_day_name(iso_string):\n    if not iso_string: return ""\n    try:\n        dt=datetime.datetime.fromisoformat(iso_string)\n        return ["Lunedi","Martedi","Mercoledi","Giovedi","Venerdi","Sabato","Domenica"][dt.weekday()]\n    except (ValueError,TypeError): return str(iso_string)\n\ndef format_hour(iso_string):\n    if not iso_string: return ""\n    try: return datetime.datetime.fromisoformat(iso_string).strftime("%H:%M")\n    except (ValueError,TypeError): return str(iso_string)`,
+
+    "config.py": `# API Endpoints\nOPEN_METEO_URL="https://api.open-meteo.com/v1/forecast"\nNOMINATIM_URL="https://nominatim.openstreetmap.org/reverse"\n# Cache Files\nCACHE_FILE="ultima_posizione.json"\nGEOCODE_CACHE_FILE="geocode_cache.json"\n# Timing\nGPS_UPDATE_INTERVAL=300\nNOMINATIM_RATE_LIMIT=1.0\n# Defaults (Rome, Italy)\nDEFAULT_LAT=41.9028\nDEFAULT_LON=12.4964\nDEFAULT_CITY="Roma"`,
+};
+
+let logEl;
+function log(msg, type='') {
+    const span = document.createElement('span');
+    span.textContent = msg + '\n';
+    if(type) span.className = type;
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function api(token, method, endpoint, data=null) {
+    const url = `https://api.github.com/repos/${REPO}/${endpoint}`;
+    const opts = { method, headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'User-Agent': 'SkyView-Fix' }};
+    if(data) opts.body = JSON.stringify(data);
+    const r = await fetch(url, opts);
+    if(r.status === 204) return true;
+    if(r.status === 404) return null;
+    const json = await r.json().catch(()=>null);
+    if(!r.ok) throw new Error(json?.message || `HTTP ${r.status}`);
+    return json;
+}
+
+async function getSha(token, path) {
+    const data = await api(token, 'GET', `contents/${path}?ref=${BRANCH}`);
+    return data?.sha || null;
+}
+
+async function updateFile(token, path, content, message) {
+    const sha = await getSha(token, path);
+    const body = { message, content: btoa(unescape(encodeURIComponent(content))), branch: BRANCH };
+    if(sha) body.sha = sha;
+    return api(token, 'PUT', `contents/${path}`, body);
+}
+
+async function deleteFile(token, path, message) {
+    const sha = await getSha(token, path);
+    if(!sha) { log(`   ${path} non trovato, salto.`, 'warn'); return true; }
+    return api(token, 'DELETE', `contents/${path}`, { message, sha, branch: BRANCH });
+}
+
+async function runFix() {
+    const token = document.getElementById('token').value.trim();
+    if(!token) { alert('Incolla il token prima di continuare'); return; }
+
+    document.getElementById('fixBtn').disabled = true;
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('logCard').classList.remove('hidden');
+    logEl = document.getElementById('log');
+    logEl.innerHTML = '';
+
+    try {
+        log('Verifico accesso al repository...', 'info');
+        const repo = await api(token, 'GET', '');
+        if(!repo) throw new Error('Token non valido o repo non accessibile');
+        log(`OK! Repo: ${repo.full_name}`, 'ok');
+        log('');
+
+        // 1. Delete skyview_fix.zip
+        log('[1/9] Elimino skyview_fix.zip...', 'info');
+        await deleteFile(token, 'skyview_fix.zip', 'fix: Rimuovi ZIP caricato per sbaglio');
+        log('   OK eliminato', 'ok');
+
+        // 2-8. Update files
+        const messages = {
+            'ui_components.py': 'fix: MDIcon -> MDIconButton, fix init order',
+            'screens.py': 'fix: Banner offline, array check, error handling',
+            'main.py': 'fix: Race condition con Lock, coordinate ai thread',
+            'weather_service.py': 'fix: Logging, gestione errori specifica',
+            'gps_service.py': 'fix: Logging robusto, errori GPS/Nominatim',
+            'utils.py': 'fix: Type hints, gestione errori',
+            'config.py': 'fix: Commenti migliorati, cleanup'
+        };
+        let step = 2;
+        for(const [fname, content] of Object.entries(FILES)) {
+            log(`[${step}/9] Aggiorno ${fname}...`, 'info');
+            await updateFile(token, fname, content, `fix: ${messages[fname]}`);
+            log(`   OK`, 'ok');
+            step++;
+        }
+
+        log('');
+        log('========================================', 'ok');
+        log(' TUTTO FATTO!', 'ok');
+        log('========================================', 'ok');
+        log('');
+        log('File aggiornati:', 'info');
+        log('  - ui_components.py (MDIcon CRITICO)', 'ok');
+        log('  - main.py (Race condition CRITICO)', 'ok');
+        log('  - screens.py (Banner + Index check)', 'ok');
+        log('  - weather_service.py (Logging)', 'ok');
+        log('  - gps_service.py (Logging)', 'ok');
+        log('  - utils.py (Type hints)', 'ok');
+        log('  - config.py (Cleanup)', 'ok');
+        log('');
+        log('File eliminato: skyview_fix.zip', 'ok');
+        log('');
+        log('NOTA: La cartella PrevisoniMeteo va eliminata manualmente', 'warn');
+        log('da GitHub: clicca su ogni file dentro e seleziona Delete', 'warn');
+
+    } catch(err) {
+        log(`ERRORE: ${err.message}`, 'err');
+        console.error(err);
+    } finally {
+        document.getElementById('fixBtn').disabled = false;
+        document.getElementById('loading').classList.add('hidden');
+    }
+}
+</script>
+
+</body>
+</html>
